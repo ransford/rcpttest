@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import smtplib
+from email.utils import parseaddr
+from optparse import OptionParser
+from twisted.internet import defer
+from twisted.names.client import lookupMailExchange
+
+options = {}
+email_address = None
+
+def parse_cmdline_options ():
+    global options, email_address
+    op = OptionParser('usage: %prog [options] user@domain.com')
+    op.add_option('-s', '--server', dest='server',
+            help='Explicitly connect to server (default: use DNS MX)')
+    op.add_option('-p', '--port', type='int', dest='port',
+            help='Port to connect to (default: 25)')
+    op.add_option('-T', '--no-tls', action='store_false', dest='tls',
+            help='Use TLS if available (default: true)',
+            default=True)
+    (options, args) = op.parse_args()
+    if len(args) != 1:
+        op.error('specify exactly one email address')
+    (_, email_address) = parseaddr(args[0])
+
+def parse_address (address):
+    return (address.split('@', 2))[:2]
+
+def mx_of_domain (domain):
+    @defer.inlineCallbacks
+    def mx ():
+        res = yield lookupMailExchange(domain)
+        returnValue(res)
+    print mx()
+
+def verify_address (addr):
+    global options
+
+    username, domain = parse_address(addr)
+    print username
+    print domain
+    if options.server:
+        servername = options.server()
+    else:
+        servername = mx_of_domain(domain)
+        print str(servername)
+    print servername
+    return
+
+    s = smtplib.SMTP()
+    s.set_debuglevel(1)
+    s.connect(servername)
+
+    s.ehlo()
+    if s.has_extn('STARTTLS'):
+        print "TLS is supported!"
+        s.starttls()
+        s.ehlo()
+
+    s.mail('ransford@cs.umass.edu')
+    s.rcpt('ben@ransford.org')
+
+    s.close()
+
+if __name__ == '__main__':
+    parse_cmdline_options()
+    verify_address(email_address)
