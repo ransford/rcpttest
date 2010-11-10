@@ -3,6 +3,7 @@
 import smtplib
 from email.utils import parseaddr
 from optparse import OptionParser
+from os import getenv
 from twisted.internet import defer
 from twisted.names.client import lookupMailExchange
 
@@ -12,6 +13,12 @@ email_address = None
 def parse_cmdline_options ():
     global options, email_address
     op = OptionParser('usage: %prog [options] user@domain.com')
+    op.add_option('-e', '--ehlo', dest='ehlo',
+            help='Hostname to use in EHLO command',
+            default=getenv('HOST'))
+    op.add_option('-f', '--from', dest='fromaddr',
+            help='Sender address to use in MAIL FROM command',
+            default='%s@%s' % (getenv('USER'), getenv('HOST')))
     op.add_option('-s', '--server', dest='server',
             help='Explicitly connect to server (default: use DNS MX)')
     op.add_option('-p', '--port', type='int', dest='port',
@@ -58,8 +65,8 @@ def verify_address (addr):
         s.starttls()
         s.ehlo()
 
-    s.mail('ransford@cs.umass.edu')
-    s.rcpt('ben@ransford.org')
+    s.mail(options.fromaddr)
+    s.rcpt(addr)
 
     s.close()
 
